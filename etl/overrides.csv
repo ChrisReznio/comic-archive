@@ -1,0 +1,3 @@
+book_id,action,series_id,number_from,number_to,partial,comment
+# Manual corrections. action = add | remove. Ids are GCD ids (book_id = issue id of the book, series_id = original series).
+# Example: 2802360,add,141,700,702,0,Morrison Omnibus vol 3 contents

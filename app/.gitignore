@@ -1,0 +1,5 @@
+node_modules
+dist
+public/db
+public/covers
+*.local

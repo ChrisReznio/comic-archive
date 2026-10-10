@@ -1,0 +1,7 @@
+raw/
+covers/
+*.sqlite
+*.sqlite.gz
+__pycache__/
+.DS_Store
+cloudflared*
