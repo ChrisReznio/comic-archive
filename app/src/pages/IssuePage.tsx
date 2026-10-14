@@ -61,6 +61,7 @@ export default function IssuePage() {
               <> via {viaNames.map((b, k) => <span key={b!.id}>{k > 0 && ", "}<Link to={`/book/${b!.id}`}>{bookTitle(b!)}</Link></span>)}</>
             )}
           </dd>
+          {cov.isRead(issue.id) && <><dt>Read</dt><dd>{cov.readIssues.has(issue.id) ? "Yes" : "Yes, in a book you’ve read"}</dd></>}
         </dl>
         <div className="actions">
           <OwnButtons type="issue" id={issue.id} label={label} sub={year(issue.key_date)} />

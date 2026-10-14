@@ -134,6 +134,12 @@ h3 { font-size: var(--step-1); }
 .btn-own[aria-pressed="true"] { background: var(--k); color: var(--paper); border-color: var(--k); }
 .btn-wish { border-color: var(--m); color: var(--m); }
 .btn-wish[aria-pressed="true"] { background: var(--m); color: #fff; }
+.btn-read { border-color: var(--c); color: var(--c); }
+.btn-read[aria-pressed="true"] { background: var(--c); color: #fff; }
+.btn-read[data-via] { background: var(--c-soft); }
+.read-mark { display: inline-block; font-size: 11px; font-weight: 700; color: var(--c); border: 1.5px solid var(--c); border-radius: 3px; padding: 0 4px; line-height: 1.35; vertical-align: 1px; }
+.cell.read { background: var(--c); border-color: var(--c); }
+.cell.unread { background: var(--card); }
 .chip {
   display: inline-block; padding: 1px 7px; border-radius: 3px; font-size: var(--step--1); font-weight: 600;
   background: var(--paper-2); color: var(--ink-2); white-space: nowrap;

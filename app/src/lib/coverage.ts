@@ -1,7 +1,7 @@
 // Coverage logic: what the user owns (directly or through books), ranges, comparisons and run planning.
 import { createContext, createElement, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { getContentMap, type IssueWithSeries } from "./db";
-import { useOwnedItems, useWishItems } from "./user";
+import { useOwnedItems, useReadItems, useWishItems } from "./user";
 
 export type Status = "owned" | "book" | "partial" | "wish" | "none";
 
@@ -11,61 +11,80 @@ export interface Coverage {
   ownedBooks: Set<number>;
   wishIssues: Set<number>;
   wishBooks: Set<number>;
+  readIssues: Set<number>;
+  readBooks: Set<number>;
   /** issue -> owned books that contain it (full or partial) */
   viaBooks: Map<number, { book: number; partial: boolean }[]>;
+  /** issue -> read books that contain it in full */
+  viaReadBooks: Map<number, number[]>;
   status(issueId: number): Status;
+  isRead(issueId: number): boolean;
 }
 
 const empty: Coverage = {
   ready: false, ownedIssues: new Set(), ownedBooks: new Set(), wishIssues: new Set(), wishBooks: new Set(),
-  viaBooks: new Map(), status: () => "none",
+  readIssues: new Set(), readBooks: new Set(), viaBooks: new Map(), viaReadBooks: new Map(),
+  status: () => "none", isRead: () => false,
 };
 const Ctx = createContext<Coverage>(empty);
+
+const ids = (items: { type: string; id: number }[] | undefined, type: string) =>
+  new Set((items ?? []).filter((x) => x.type === type).map((x) => x.id));
 
 export function CoverageProvider({ children }: { children: ReactNode }) {
   const owned = useOwnedItems();
   const wish = useWishItems();
-  const [viaBooks, setVia] = useState<Coverage["viaBooks"]>(new Map());
+  const read = useReadItems();
+  const [maps, setMaps] = useState<{ viaBooks: Coverage["viaBooks"]; viaReadBooks: Coverage["viaReadBooks"] }>({ viaBooks: new Map(), viaReadBooks: new Map() });
   const [loaded, setLoaded] = useState(false);
 
-  const ownedBooks = useMemo(() => new Set((owned ?? []).filter((x) => x.type === "book").map((x) => x.id)), [owned]);
-  const ownedIssues = useMemo(() => new Set((owned ?? []).filter((x) => x.type === "issue").map((x) => x.id)), [owned]);
-  const wishIssues = useMemo(() => new Set((wish ?? []).filter((x) => x.type === "issue").map((x) => x.id)), [wish]);
-  const wishBooks = useMemo(() => new Set((wish ?? []).filter((x) => x.type === "book").map((x) => x.id)), [wish]);
-  const booksKey = [...ownedBooks].sort((a, b) => a - b).join(",");
+  const ownedBooks = useMemo(() => ids(owned, "book"), [owned]);
+  const ownedIssues = useMemo(() => ids(owned, "issue"), [owned]);
+  const wishIssues = useMemo(() => ids(wish, "issue"), [wish]);
+  const wishBooks = useMemo(() => ids(wish, "book"), [wish]);
+  const readIssues = useMemo(() => ids(read, "issue"), [read]);
+  const readBooks = useMemo(() => ids(read, "book"), [read]);
+  const booksKey = [...ownedBooks].sort((a, b) => a - b).join(",") + "|" + [...readBooks].sort((a, b) => a - b).join(",");
 
   useEffect(() => {
     let alive = true;
-    if (owned === undefined) return;
-    getContentMap([...ownedBooks])
+    if (owned === undefined || read === undefined) return;
+    getContentMap([...new Set([...ownedBooks, ...readBooks])])
       .then((map) => {
         if (!alive) return;
-        const via: Coverage["viaBooks"] = new Map();
+        const viaBooks: Coverage["viaBooks"] = new Map(), viaReadBooks: Coverage["viaReadBooks"] = new Map();
         for (const [book, rows] of map)
           for (const r of rows) {
-            if (!via.has(r.issue)) via.set(r.issue, []);
-            via.get(r.issue)!.push({ book, partial: r.partial });
+            if (ownedBooks.has(book)) {
+              if (!viaBooks.has(r.issue)) viaBooks.set(r.issue, []);
+              viaBooks.get(r.issue)!.push({ book, partial: r.partial });
+            }
+            if (readBooks.has(book) && !r.partial) {
+              if (!viaReadBooks.has(r.issue)) viaReadBooks.set(r.issue, []);
+              viaReadBooks.get(r.issue)!.push(book);
+            }
           }
-        setVia(via);
+        setMaps({ viaBooks, viaReadBooks });
         setLoaded(true);
       })
       .catch(() => alive && setLoaded(true));
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [booksKey, owned === undefined]);
+  }, [booksKey, owned === undefined, read === undefined]);
 
   const value = useMemo<Coverage>(() => ({
     ready: loaded && owned !== undefined,
-    ownedIssues, ownedBooks, wishIssues, wishBooks, viaBooks,
+    ownedIssues, ownedBooks, wishIssues, wishBooks, readIssues, readBooks, ...maps,
     status(id) {
       if (ownedIssues.has(id)) return "owned";
-      const v = viaBooks.get(id);
+      const v = maps.viaBooks.get(id);
       if (v?.some((x) => !x.partial)) return "book";
       if (v?.length) return "partial";
       if (wishIssues.has(id)) return "wish";
       return "none";
     },
-  }), [loaded, owned, ownedIssues, ownedBooks, wishIssues, wishBooks, viaBooks]);
+    isRead(id) { return readIssues.has(id) || maps.viaReadBooks.has(id); },
+  }), [loaded, owned, ownedIssues, ownedBooks, wishIssues, wishBooks, readIssues, readBooks, maps]);
 
   return createElement(Ctx.Provider, { value }, children);
 }

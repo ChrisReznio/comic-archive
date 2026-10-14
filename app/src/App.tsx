@@ -8,6 +8,9 @@ import CollectionPage from "./pages/CollectionPage";
 import ComparePage from "./pages/ComparePage";
 import PlanPage from "./pages/PlanPage";
 import AboutPage from "./pages/AboutPage";
+import AccountPage from "./pages/AccountPage";
+import { accountsEnabled, cleanAuthParams, useSession } from "./lib/supabase";
+import { useSyncEngine } from "./lib/sync";
 
 function TopSearch() {
   const [params] = useSearchParams();
@@ -49,7 +52,10 @@ function TopSearch() {
 
 export default function App() {
   const loc = useLocation();
+  const session = useSession();
+  useSyncEngine();
   useEffect(() => { window.scrollTo(0, 0); }, [loc.pathname]);
+  useEffect(() => { if (session !== undefined) cleanAuthParams(); }, [session]);
   return (
     <div className="shell">
       <header className="top">
@@ -65,6 +71,7 @@ export default function App() {
             <NavLink to="/" end>Search</NavLink>
             <NavLink to="/collection">Collection</NavLink>
             <NavLink to="/compare">Compare</NavLink>
+            {accountsEnabled && <NavLink to="/account">{session ? "Account" : "Sign in"}</NavLink>}
           </nav>
         </div>
       </header>
@@ -78,6 +85,7 @@ export default function App() {
           <Route path="/compare" element={<ComparePage />} />
           <Route path="/plan/:id" element={<PlanPage />} />
           <Route path="/about" element={<AboutPage />} />
+          <Route path="/account" element={<AccountPage />} />
           <Route path="*" element={<p className="empty">This page doesn’t exist. <Link to="/">Back to search</Link>.</p>} />
         </Routes>
       </main>

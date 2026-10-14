@@ -1,17 +1,21 @@
-// User data lives only in this browser (IndexedDB). Export/import keeps a backup or moves it to another device.
+// User data is stored in this browser (IndexedDB) so the app works offline. When signed in, lib/sync.ts mirrors it
+// to the account: every local change is marked dirty and pushed; deletions are kept as tombstones until synced.
 import Dexie, { type Table } from "dexie";
 import { useLiveQuery } from "dexie-react-hooks";
 
 export type ItemType = "issue" | "book";
+export type Flag = "owned" | "wish" | "read";
 export interface UserItem {
   key: string; // "i:123" | "b:456"
   type: ItemType;
   id: number;
   owned: 0 | 1;
   wish: 0 | 1;
+  read: 0 | 1;
   label: string; // snapshot for lists, so the collection renders without catalog lookups
   sub?: string;
   updatedAt: number;
+  dirty: 0 | 1; // changed locally, not yet pushed to the account
 }
 export type CompareSide = "A" | "B";
 export interface CompareEntry {
@@ -29,45 +33,55 @@ class UserDb extends Dexie {
   constructor() {
     super("longbox-user");
     this.version(1).stores({ items: "key, type, owned, wish, updatedAt", compare: "key, side, addedAt" });
+    this.version(2)
+      .stores({ items: "key, type, owned, wish, read, dirty, updatedAt", compare: "key, side, addedAt" })
+      .upgrade((tx) => tx.table("items").toCollection().modify((it: UserItem) => { it.read = 0; it.dirty = 1; }));
   }
 }
 export const userDb = new UserDb();
 
+/** Set by the sync module: when signed in, removals become tombstones so they reach the account. */
+let keepTombstones = false;
+export function setKeepTombstones(v: boolean) { keepTombstones = v; }
+const listeners = new Set<() => void>();
+export function onLocalChange(fn: () => void) { listeners.add(fn); return () => listeners.delete(fn); }
+const changed = () => listeners.forEach((f) => f());
+
 export const itemKey = (type: ItemType, id: number) => `${type === "issue" ? "i" : "b"}:${id}`;
+const isEmpty = (it: UserItem) => !it.owned && !it.wish && !it.read;
 
 export function useItem(type: ItemType, id: number | undefined) {
   return useLiveQuery(() => (id ? userDb.items.get(itemKey(type, id)) : undefined), [type, id]);
 }
 
-export async function setFlag(type: ItemType, id: number, flag: "owned" | "wish", value: boolean, label: string, sub?: string) {
-  const key = itemKey(type, id);
-  await userDb.transaction("rw", userDb.items, async () => {
-    const cur = await userDb.items.get(key);
-    const next: UserItem = cur
-      ? { ...cur, label, sub: sub ?? cur.sub, updatedAt: Date.now() }
-      : { key, type, id, owned: 0, wish: 0, label, sub, updatedAt: Date.now() };
-    next[flag] = value ? 1 : 0;
-    if (flag === "owned" && value) next.wish = 0; // buying it takes it off the wishlist
-    if (!next.owned && !next.wish) await userDb.items.delete(key);
-    else await userDb.items.put(next);
-  });
+function apply(cur: UserItem | undefined, key: string, type: ItemType, id: number, flag: Flag, value: boolean, label: string, sub?: string): UserItem {
+  const next: UserItem = cur
+    ? { ...cur, label: label || cur.label, sub: sub ?? cur.sub, updatedAt: Date.now(), dirty: 1 }
+    : { key, type, id, owned: 0, wish: 0, read: 0, label, sub, updatedAt: Date.now(), dirty: 1 };
+  next[flag] = value ? 1 : 0;
+  if (flag === "owned" && value) next.wish = 0; // buying it takes it off the wishlist
+  return next;
 }
 
-export async function setFlagMany(type: ItemType, entries: { id: number; label: string; sub?: string }[], flag: "owned" | "wish", value: boolean) {
+export async function setFlag(type: ItemType, id: number, flag: Flag, value: boolean, label: string, sub?: string) {
+  await setFlagMany(type, [{ id, label, sub }], flag, value);
+}
+
+export async function setFlagMany(type: ItemType, entries: { id: number; label: string; sub?: string }[], flag: Flag, value: boolean) {
   await userDb.transaction("rw", userDb.items, async () => {
     const keys = entries.map((e) => itemKey(type, e.id));
     const cur = await userDb.items.bulkGet(keys);
     const puts: UserItem[] = [], dels: string[] = [];
     entries.forEach((e, k) => {
-      const c = cur[k];
-      const next: UserItem = c ? { ...c, updatedAt: Date.now() } : { key: keys[k], type, id: e.id, owned: 0, wish: 0, label: e.label, sub: e.sub, updatedAt: Date.now() };
-      next[flag] = value ? 1 : 0;
-      if (flag === "owned" && value) next.wish = 0;
-      if (!next.owned && !next.wish) { if (c) dels.push(keys[k]); } else puts.push(next);
+      const next = apply(cur[k], keys[k], type, e.id, flag, value, e.label, e.sub);
+      if (isEmpty(next) && !keepTombstones) { if (cur[k]) dels.push(keys[k]); }
+      else if (isEmpty(next) && !cur[k]) { /* nothing to record */ }
+      else puts.push(next);
     });
     if (puts.length) await userDb.items.bulkPut(puts);
     if (dels.length) await userDb.items.bulkDelete(dels);
   });
+  changed();
 }
 
 export function useOwnedItems() {
@@ -75,6 +89,12 @@ export function useOwnedItems() {
 }
 export function useWishItems() {
   return useLiveQuery(() => userDb.items.where("wish").equals(1).toArray(), [], undefined);
+}
+export function useReadItems() {
+  return useLiveQuery(() => userDb.items.where("read").equals(1).toArray(), [], undefined);
+}
+export function usePendingCount() {
+  return useLiveQuery(() => userDb.items.where("dirty").equals(1).count(), [], 0);
 }
 
 // ---------- compare lists ----------
@@ -94,16 +114,23 @@ export async function clearCompare(side?: CompareSide) {
 
 // ---------- backup ----------
 export async function exportData() {
-  const items = await userDb.items.toArray();
-  return JSON.stringify({ app: "longbox", version: 1, exportedAt: new Date().toISOString(), items }, null, 1);
+  const items = (await userDb.items.toArray()).filter((x) => !isEmpty(x)).map(({ dirty: _d, ...rest }) => rest);
+  return JSON.stringify({ app: "longbox", version: 2, exportedAt: new Date().toISOString(), items }, null, 1);
 }
 export async function importData(json: string, mode: "merge" | "replace") {
   const data = JSON.parse(json);
   if (data?.app !== "longbox" || !Array.isArray(data.items)) throw new Error("This file isn’t a Longbox backup.");
-  const items: UserItem[] = data.items.filter((x: UserItem) => x && typeof x.key === "string" && typeof x.id === "number");
+  const now = Date.now();
+  const items: UserItem[] = data.items
+    .filter((x: UserItem) => x && typeof x.key === "string" && typeof x.id === "number")
+    .map((x: UserItem) => ({ ...x, read: x.read ? 1 : 0, owned: x.owned ? 1 : 0, wish: x.wish ? 1 : 0, updatedAt: now, dirty: 1 }));
   await userDb.transaction("rw", userDb.items, async () => {
-    if (mode === "replace") await userDb.items.clear();
+    if (mode === "replace") {
+      if (keepTombstones) await userDb.items.toCollection().modify((it: UserItem) => { it.owned = 0; it.wish = 0; it.read = 0; it.dirty = 1; it.updatedAt = now; });
+      else await userDb.items.clear();
+    }
     await userDb.items.bulkPut(items);
   });
+  changed();
   return items.length;
 }

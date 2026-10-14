@@ -78,7 +78,9 @@ export function FormatChips({ format, cover }: { format: string; cover: string |
 // ---------- own / wish toggles ----------
 export function OwnButtons({ type, id, label, sub, compact }: { type: ItemType; id: number; label: string; sub?: string; compact?: boolean }) {
   const item = useItem(type, id);
-  const owned = !!item?.owned, wish = !!item?.wish;
+  const cov = useCoverage();
+  const owned = !!item?.owned, wish = !!item?.wish, read = !!item?.read;
+  const readViaBook = !read && type === "issue" && cov.viaReadBooks.has(id);
   const cls = compact ? "btn small" : "btn";
   return (
     <>
@@ -87,6 +89,11 @@ export function OwnButtons({ type, id, label, sub, compact }: { type: ItemType; 
       </button>
       <button className={`${cls} btn-wish`} aria-pressed={wish} onClick={() => setFlag(type, id, "wish", !wish, label, sub)}>
         {wish ? "♥ On wishlist" : "♡ Wishlist"}
+      </button>
+      <button className={`${cls} btn-read`} aria-pressed={read} data-via={readViaBook || undefined}
+        title={readViaBook ? "You read it in a book you marked as read" : undefined}
+        onClick={() => setFlag(type, id, "read", !read, label, sub)}>
+        {read ? "✓ Read" : readViaBook ? "✓ Read in a book" : "Mark as read"}
       </button>
     </>
   );

@@ -38,7 +38,8 @@ export default function BookPage() {
         const other = new Set((data.edMap.get(e.id) ?? []).map((r) => r.issue));
         return { e, plus: [...other].filter((x) => !mine.has(x)).length, minus: [...mine].filter((x) => !other.has(x)).length };
       });
-    return { issues, groups, haveElsewhere, sources, editions };
+    const readCount = issues.filter((c) => cov.isRead(c.id)).length;
+    return { issues, groups, haveElsewhere, sources, editions, readCount };
   }, [data, cov, id]);
 
   if (error) return <ErrorBox error={error} />;
@@ -76,6 +77,7 @@ export default function BookPage() {
               <span className="small muted">
                 {derived.issues.length} issues from {derived.groups.length} series
                 {derived.haveElsewhere.length > 0 && `. You already own ${derived.haveElsewhere.length} elsewhere`}
+                {derived.readCount > 0 && !cov.readBooks.has(id) && `. You’ve read ${derived.readCount}`}
               </span>
             )}
           </div>

@@ -1,42 +1,50 @@
 import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { exportData, importData, useOwnedItems, useWishItems, setFlag, type UserItem } from "../lib/user";
+import { exportData, importData, useOwnedItems, useReadItems, useWishItems, setFlag, type UserItem } from "../lib/user";
+import { accountsEnabled, useSession } from "../lib/supabase";
 import { useCoverage } from "../lib/coverage";
 import { Loading } from "../components/ui";
 
-type Tab = "owned" | "wish" | "backup";
+type Tab = "owned" | "wish" | "read" | "backup";
 
 export default function CollectionPage() {
   const [tab, setTab] = useState<Tab>("owned");
   const owned = useOwnedItems();
   const wish = useWishItems();
+  const read = useReadItems();
   const cov = useCoverage();
+  const session = useSession();
   const coveredOnlyByBooks = [...cov.viaBooks.entries()].filter(([i, v]) => !cov.ownedIssues.has(i) && v.some((x) => !x.partial)).length;
 
   return (
     <div>
       <h1 className="display">Your collection</h1>
       <p className="muted" style={{ margin: "8px 0 20px", maxWidth: "60ch" }}>
-        It’s saved in this browser. To keep a copy or move it to another device, use “Backup”.
+        {session ? <>Saved in your account ({session.user.email}) and on this device.</>
+          : accountsEnabled ? <>Saved on this device only. <Link to="/account">Sign in</Link> to keep it in your account and use it on other devices.</>
+          : <>It’s saved in this browser. To keep a copy or move it to another device, use “Backup”.</>}
       </p>
       <div className="stat-line" style={{ marginBottom: 24 }}>
         <div className="stat"><strong>{cov.ownedBooks.size}</strong><span className="small muted">books</span></div>
         <div className="stat"><strong>{cov.ownedIssues.size}</strong><span className="small muted">single issues</span></div>
         <div className="stat"><strong>{coveredOnlyByBooks}</strong><span className="small muted">issues covered by your books</span></div>
+        <div className="stat"><strong>{(read ?? []).length}</strong><span className="small muted">marked as read</span></div>
       </div>
       <div className="tabs" role="tablist">
         <button role="tab" aria-selected={tab === "owned"} onClick={() => setTab("owned")}>Owned ({owned?.length ?? 0})</button>
         <button role="tab" aria-selected={tab === "wish"} onClick={() => setTab("wish")}>Wishlist ({wish?.length ?? 0})</button>
+        <button role="tab" aria-selected={tab === "read"} onClick={() => setTab("read")}>Read ({read?.length ?? 0})</button>
         <button role="tab" aria-selected={tab === "backup"} onClick={() => setTab("backup")}>Backup</button>
       </div>
       {tab === "owned" && (owned ? <ItemList items={owned} flag="owned" /> : <Loading />)}
       {tab === "wish" && (wish ? <ItemList items={wish} flag="wish" /> : <Loading />)}
+      {tab === "read" && (read ? <ItemList items={read} flag="read" /> : <Loading />)}
       {tab === "backup" && <Backup />}
     </div>
   );
 }
 
-function ItemList({ items, flag }: { items: UserItem[]; flag: "owned" | "wish" }) {
+function ItemList({ items, flag }: { items: UserItem[]; flag: "owned" | "wish" | "read" }) {
   const [filter, setFilter] = useState("");
   const { books, issueGroups } = useMemo(() => {
     const f = filter.toLowerCase();
@@ -58,6 +66,7 @@ function ItemList({ items, flag }: { items: UserItem[]; flag: "owned" | "wish" }
       <p className="empty">
         {flag === "owned"
           ? "Nothing marked yet. Find a book or a series and tap “I own this”."
+          : flag === "read" ? "Nothing marked as read yet. Tap “Mark as read” on any book or issue."
           : "Your wishlist is empty. Tap “Wishlist” on any book or issue to save it here."}{" "}
         <Link to="/">Go to search</Link>
       </p>
@@ -86,7 +95,7 @@ function ItemList({ items, flag }: { items: UserItem[]; flag: "owned" | "wish" }
               <h3>{series} <span className="small faint">{g.length}</span></h3>
               <div className="issue-pills">
                 {g.map((x) => (
-                  <Link key={x.key} to={`/issue/${x.id}`} className={`pill ${flag === "owned" ? "owned" : "wish"}`}>
+                  <Link key={x.key} to={`/issue/${x.id}`} className={`pill ${flag === "owned" ? "owned" : flag === "read" ? "book" : "wish"}`}>
                     {x.label.match(/#([^#]*)$/)?.[1] ?? "?"}
                   </Link>
                 ))}
