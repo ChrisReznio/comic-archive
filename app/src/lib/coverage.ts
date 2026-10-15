@@ -2,6 +2,7 @@
 import { createContext, createElement, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { getContentMap, type IssueWithSeries } from "./db";
 import { useOwnedItems, useReadItems, useWishItems } from "./user";
+import { useCanTrack } from "./supabase";
 
 export type Status = "owned" | "book" | "partial" | "wish" | "none";
 
@@ -32,9 +33,10 @@ const ids = (items: { type: string; id: number }[] | undefined, type: string) =>
   new Set((items ?? []).filter((x) => x.type === type).map((x) => x.id));
 
 export function CoverageProvider({ children }: { children: ReactNode }) {
-  const owned = useOwnedItems();
-  const wish = useWishItems();
-  const read = useReadItems();
+  const canTrack = useCanTrack();
+  const ownedAll = useOwnedItems(), wishAll = useWishItems(), readAll = useReadItems();
+  // signed out: behave as an empty collection (anything stored locally stays until the user signs in)
+  const owned = canTrack ? ownedAll : ownedAll && [], wish = canTrack ? wishAll : wishAll && [], read = canTrack ? readAll : readAll && [];
   const [maps, setMaps] = useState<{ viaBooks: Coverage["viaBooks"]; viaReadBooks: Coverage["viaReadBooks"] }>({ viaBooks: new Map(), viaReadBooks: new Map() });
   const [loaded, setLoaded] = useState(false);
 

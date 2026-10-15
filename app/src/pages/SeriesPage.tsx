@@ -4,6 +4,7 @@ import { getSeries, getSeriesIssues, year, type Issue, type Series } from "../li
 import { cleanNumber, useCoverage } from "../lib/coverage";
 import { BookCard, CompareButtons, ErrorBox, Loading, RunBar, StatusLegend, useAsync } from "../components/ui";
 import { setFlagMany } from "../lib/user";
+import { useCanTrack } from "../lib/supabase";
 
 export default function SeriesPage() {
   const id = Number(useParams().id);
@@ -30,7 +31,9 @@ function Header({ s, sub }: { s: Series; sub: string }) {
 
 function Periodical({ s, issues }: { s: Series; issues: Issue[] }) {
   const cov = useCoverage();
-  const [mode, setMode] = useState<"mine" | "read" | "collected">("mine");
+  const canTrack = useCanTrack();
+  const [modeState, setMode] = useState<"mine" | "read" | "collected">("mine");
+  const mode = canTrack ? modeState : "collected";
   const counts = useMemo(() => {
     const c = { owned: 0, book: 0, partial: 0, wish: 0, none: 0, collected: 0, read: 0 };
     for (const i of issues) { c[cov.status(i.id)]++; if (i.collected_in > 0) c.collected++; if (cov.isRead(i.id)) c.read++; }
@@ -47,8 +50,10 @@ function Periodical({ s, issues }: { s: Series; issues: Issue[] }) {
       <section className="section" style={{ marginTop: 24 }}>
         <div className="section-head">
           <div className="tabs" role="tablist" style={{ marginBottom: 0, borderBottom: 0 }}>
-            <button role="tab" aria-selected={mode === "mine"} onClick={() => setMode("mine")}>My collection</button>
-            <button role="tab" aria-selected={mode === "read"} onClick={() => setMode("read")}>Reading</button>
+            {canTrack && <>
+              <button role="tab" aria-selected={mode === "mine"} onClick={() => setMode("mine")}>My collection</button>
+              <button role="tab" aria-selected={mode === "read"} onClick={() => setMode("read")}>Reading</button>
+            </>}
             <button role="tab" aria-selected={mode === "collected"} onClick={() => setMode("collected")}>What’s been collected</button>
           </div>
           <span className="small muted">
@@ -84,6 +89,7 @@ function Periodical({ s, issues }: { s: Series; issues: Issue[] }) {
             </div>
           </>
         )}
+        {!canTrack && <p className="small faint" style={{ margin: "10px 0 0" }}><Link to="/account">Sign in</Link> to see which of these you own and have read.</p>}
         <div className="actions">
           <Link className="btn solid" to={`/plan/${s.id}`}>Plan how to complete it</Link>
           <CompareButtons type="series" id={s.id} label={label} />
@@ -93,12 +99,12 @@ function Periodical({ s, issues }: { s: Series; issues: Issue[] }) {
       <section className="section">
         <div className="section-head">
           <h2 className="display">Issues</h2>
-          <span className="row" style={{ gap: 6 }}>
+          {canTrack && <span className="row" style={{ gap: 6 }}>
             <button className="btn small ghost" onClick={() => markAll(true)}>Mark all as owned</button>
             {counts.owned > 0 && <button className="btn small ghost" onClick={() => markAll(false)}>Unmark owned</button>}
             <button className="btn small ghost" onClick={() => markAll(true, "read")}>Mark all as read</button>
             {[...cov.readIssues].some((id) => issues.some((i) => i.id === id)) && <button className="btn small ghost" onClick={() => markAll(false, "read")}>Unmark read</button>}
-          </span>
+          </span>}
         </div>
         <ul className="list">
           {issues.map((i) => {

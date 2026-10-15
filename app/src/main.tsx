@@ -3,14 +3,17 @@ import { createRoot } from "react-dom/client";
 import { HashRouter } from "react-router-dom";
 import App from "./App";
 import { CoverageProvider } from "./lib/coverage";
+import { SessionProvider } from "./lib/supabase";
 import "./styles.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <HashRouter>
-      <CoverageProvider>
-        <App />
-      </CoverageProvider>
+      <SessionProvider>
+        <CoverageProvider>
+          <App />
+        </CoverageProvider>
+      </SessionProvider>
     </HashRouter>
   </StrictMode>,
 );

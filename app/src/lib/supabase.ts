@@ -1,6 +1,6 @@
 // Supabase client (auth + user data). Configured at build time; without these env vars the app runs local-only.
 import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
-import { useEffect, useState } from "react";
+import { createContext, createElement, useContext, useEffect, useState, type ReactNode } from "react";
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
@@ -14,8 +14,10 @@ export const supabase: SupabaseClient | null =
 
 export const accountsEnabled = !!supabase;
 
-/** Current session, kept up to date. undefined = still loading. */
-export function useSession() {
+const SessionCtx = createContext<Session | null | undefined>(null);
+
+/** One shared auth subscription for the whole app. */
+export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null | undefined>(supabase ? undefined : null);
   useEffect(() => {
     if (!supabase) return;
@@ -23,7 +25,14 @@ export function useSession() {
     const { data } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
     return () => data.subscription.unsubscribe();
   }, []);
-  return session;
+  return createElement(SessionCtx.Provider, { value: session }, children);
+}
+/** Current session. undefined = still loading. */
+export const useSession = () => useContext(SessionCtx);
+/** Collection, wishlist and read marks need an account (when accounts are configured). */
+export function useCanTrack() {
+  const session = useSession();
+  return !accountsEnabled || !!session;
 }
 
 /** The magic link comes back as ?code=… before the #route; drop it from the address bar once handled. */

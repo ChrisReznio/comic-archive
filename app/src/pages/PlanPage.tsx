@@ -4,6 +4,7 @@ import { bookTitle, getPlanBooks, getSeries, getSeriesIssues, year, type Issue, 
 import { cleanNumber, compressRun, planRun, useCoverage, type PlanBook } from "../lib/coverage";
 import { Cover, ErrorBox, FormatChips, Loading, RunBar, useAsync } from "../components/ui";
 import { setFlagMany } from "../lib/user";
+import { useCanTrack } from "../lib/supabase";
 
 type Pref = "any" | "soft" | "hard" | "big";
 const PREF_LABEL: Record<Pref, string> = {
@@ -33,7 +34,9 @@ export default function PlanPage() {
 
   const [from, setFrom] = useState(0);
   const [to, setTo] = useState(-1);
-  const [skipOwned, setSkipOwned] = useState(true);
+  const canTrack = useCanTrack();
+  const [skipState, setSkipOwned] = useState(true);
+  const skipOwned = skipState && canTrack;
   const [pref, setPref] = useState<Pref>("any");
 
   const plan = useMemo(() => {
@@ -81,9 +84,9 @@ export default function PlanPage() {
             {(Object.keys(PREF_LABEL) as Pref[]).map((p) => <option key={p} value={p}>{PREF_LABEL[p]}</option>)}
           </select>
         </label>
-        <label style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingBottom: 8 }}>
+        {canTrack && <label style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingBottom: 8 }}>
           <input type="checkbox" checked={skipOwned} onChange={(e) => setSkipOwned(e.target.checked)} /> Skip what I own
-        </label>
+        </label>}
       </div>
 
       <RunBar
@@ -107,7 +110,7 @@ export default function PlanPage() {
         <section className="section">
           <div className="section-head">
             <h2 className="display">Suggested books</h2>
-            <button className="btn small" onClick={wishAll}>Add all to wishlist</button>
+            {canTrack && <button className="btn small" onClick={wishAll}>Add all to wishlist</button>}
           </div>
           {plan.result.picks.map((p, k) => {
             const b = plan.bookInfo.get(p.book)!;

@@ -4,6 +4,7 @@ import { getContentMap, getIssues, getSeries, getSeriesIssues, search, seriesLab
 import { compressRun, groupBySeries, useCoverage } from "../lib/coverage";
 import { addToCompare, clearCompare, removeFromCompare, useCompare, type CompareEntry, type CompareSide } from "../lib/user";
 import { ErrorBox, Loading, RunBar } from "../components/ui";
+import { useCanTrack } from "../lib/supabase";
 
 /** Resolve compare entries into a set of issue ids (partial content tracked separately). */
 async function resolveEntries(entries: CompareEntry[]) {
@@ -27,7 +28,9 @@ async function resolveEntries(entries: CompareEntry[]) {
 export default function ComparePage() {
   const entries = useCompare();
   const cov = useCoverage();
-  const [mineAsB, setMineAsB] = useState(false);
+  const canTrack = useCanTrack();
+  const [mineState, setMineAsB] = useState(false);
+  const mineAsB = mineState && canTrack;
   const a = entries.filter((e) => e.side === "A");
   const b = entries.filter((e) => e.side === "B");
   const key = entries.map((e) => e.key).join("|") + (mineAsB ? "|mine:" + cov.ownedBooks.size + ":" + cov.ownedIssues.size + ":" + cov.viaBooks.size : "");
@@ -74,7 +77,7 @@ export default function ComparePage() {
             <p className="small muted">{cov.ownedBooks.size} books and {cov.ownedIssues.size} single issues.</p>
           </div>
         ) : (
-          <Side side="B" entries={b} extra={<button className="btn small ghost" onClick={() => setMineAsB(true)}>Compare with my collection</button>} />
+          <Side side="B" entries={b} extra={canTrack ? <button className="btn small ghost" onClick={() => setMineAsB(true)}>Compare with my collection</button> : undefined} />
         )}
       </div>
       <section className="section">

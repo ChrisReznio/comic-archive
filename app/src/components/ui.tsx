@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { cleanNumber, useCoverage, STATUS_LABEL, type Status } from "../lib/coverage";
 import { setFlag, useItem, addToCompare, type ItemType } from "../lib/user";
 import { coverUrl } from "../lib/covers";
+import { useCanTrack } from "../lib/supabase";
 
 // ---------- async helper ----------
 export function useAsync<T>(fn: () => Promise<T>, deps: unknown[]) {
@@ -79,9 +80,17 @@ export function FormatChips({ format, cover }: { format: string; cover: string |
 export function OwnButtons({ type, id, label, sub, compact }: { type: ItemType; id: number; label: string; sub?: string; compact?: boolean }) {
   const item = useItem(type, id);
   const cov = useCoverage();
+  const canTrack = useCanTrack();
   const owned = !!item?.owned, wish = !!item?.wish, read = !!item?.read;
   const readViaBook = !read && type === "issue" && cov.viaReadBooks.has(id);
   const cls = compact ? "btn small" : "btn";
+  if (!canTrack)
+    return (
+      <span className="row" style={{ gap: 8 }}>
+        <Link className={`${cls} solid`} to="/account">Sign in to track this</Link>
+        <span className="small faint">Mark what you own, want and have read.</span>
+      </span>
+    );
   return (
     <>
       <button className={`${cls} btn-own`} aria-pressed={owned} onClick={() => setFlag(type, id, "owned", !owned, label, sub)}>

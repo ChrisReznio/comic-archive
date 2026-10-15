@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { exportData, importData, useOwnedItems, useReadItems, useWishItems, setFlag, type UserItem } from "../lib/user";
-import { accountsEnabled, useSession } from "../lib/supabase";
+import { accountsEnabled, useCanTrack, useSession } from "../lib/supabase";
 import { useCoverage } from "../lib/coverage";
 import { Loading } from "../components/ui";
 
@@ -15,6 +15,18 @@ export default function CollectionPage() {
   const cov = useCoverage();
   const session = useSession();
   const coveredOnlyByBooks = [...cov.viaBooks.entries()].filter(([i, v]) => !cov.ownedIssues.has(i) && v.some((x) => !x.partial)).length;
+  const canTrack = useCanTrack();
+
+  if (!canTrack)
+    return (
+      <div style={{ maxWidth: "60ch" }}>
+        <h1 className="display">Your collection</h1>
+        <p className="muted" style={{ margin: "8px 0 20px" }}>
+          Sign in to keep track of the books and issues you own, your wishlist and what you’ve read, on any device.
+        </p>
+        <Link className="btn solid" to="/account">Sign in</Link>
+      </div>
+    );
 
   return (
     <div>
