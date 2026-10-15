@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import { bookTitle, getBookContent, getContentMap, getEditions, getIssue, getStories, year, type ContentRow } from "../lib/db";
 import { cleanNumber, compressRun, groupBySeries, useCoverage } from "../lib/coverage";
-import { CompareButtons, Cover, ErrorBox, FormatChips, Loading, OwnButtons, useAsync } from "../components/ui";
+import { CompareButtons, Cover, Crumbs, ErrorBox, FormatChips, Loading, OwnButtons, useAsync } from "../components/ui";
 import { StoryRow } from "./IssuePage";
 
 const SOURCE_NOTE: Record<string, string> = {
@@ -51,12 +51,13 @@ export default function BookPage() {
   const isSelf = derived.sources.includes("self");
 
   return (
+    <>
+      <Crumbs items={[{ label: book.series_name, to: `/series/${book.series_id}` }, { label: book.number && book.number !== "[nn]" ? `Vol. ${book.number.replace(/^\[|\]$/g, "")}` : year(book.key_date) || "Book" }]} />
     <div className="detail">
       <div className="detail-cover">
         <Cover id={book.id} kind="book" format={book.format} title={book.title || book.series_name} number={book.number} />
       </div>
       <div>
-        <div className="crumbs"><Link to={`/series/${book.series_id}`}>{book.series_name}</Link></div>
         <h1 className="display">{title}</h1>
         <div className="row" style={{ marginTop: 12 }}><FormatChips format={book.format} cover={book.cover} /></div>
         <dl className="kv" style={{ marginTop: 16 }}>
@@ -114,6 +115,7 @@ export default function BookPage() {
         )}
       </div>
     </div>
+    </>
   );
 }
 

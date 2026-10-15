@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import { bookTitle, getCollectedIn, getIssue, getSeriesIssues, getStories, issueLabel, year, type Story } from "../lib/db";
 import { cleanNumber, STATUS_LABEL, useCoverage } from "../lib/coverage";
-import { BookCard, CompareButtons, Cover, ErrorBox, Loading, OwnButtons, useAsync } from "../components/ui";
+import { BookCard, CompareButtons, Cover, Crumbs, ErrorBox, Loading, OwnButtons, useAsync } from "../components/ui";
 
 export default function IssuePage() {
   const id = Number(useParams().id);
@@ -39,14 +39,13 @@ export default function IssuePage() {
   const viaNames = via.map((v) => data.books.find((b) => b.id === v.book)).filter(Boolean);
 
   return (
+    <>
+      <Crumbs items={[{ label: `${issue.series_name} (${issue.series_year})`, to: `/series/${issue.series_id}` }, { label: `#${cleanNumber(issue.number)}` }]} />
     <div className="detail">
       <div className="detail-cover">
         <Cover id={issue.id} kind="periodical" format={issue.format} title={issue.series_name} number={issue.number} />
       </div>
       <div>
-        <div className="crumbs">
-          <Link to={`/series/${issue.series_id}`}>{issue.series_name} ({issue.series_year})</Link>
-        </div>
         <h1 className="display">{issue.series_name} #{cleanNumber(issue.number)}</h1>
         {issue.title && <p className="muted" style={{ fontSize: "var(--step-1)", margin: "6px 0 0" }}>{issue.title}</p>}
         <dl className="kv" style={{ marginTop: 16 }}>
@@ -103,6 +102,7 @@ export default function IssuePage() {
         )}
       </div>
     </div>
+    </>
   );
 }
 

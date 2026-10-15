@@ -11,6 +11,7 @@ import AboutPage from "./pages/AboutPage";
 import AccountPage from "./pages/AccountPage";
 import { accountsEnabled, cleanAuthParams, useSession } from "./lib/supabase";
 import { useSyncEngine } from "./lib/sync";
+import { BackButton, rememberSearch } from "./components/ui";
 
 function TopSearch() {
   const [params] = useSearchParams();
@@ -28,6 +29,7 @@ function TopSearch() {
   }, []);
   const submit = (e: FormEvent) => {
     e.preventDefault();
+    rememberSearch(q);
     nav(q.trim() ? `/?q=${encodeURIComponent(q.trim())}` : "/");
     ref.current?.blur();
   };
@@ -60,6 +62,7 @@ export default function App() {
     <div className="shell">
       <header className="top">
         <div className="top-inner">
+          {loc.pathname !== "/" && <BackButton />}
           <Link to="/" className="brand display" aria-label="Longbox, home">
             <span className="brand-dots" aria-hidden="true">
               <i style={{ background: "var(--c)" }} /><i style={{ background: "var(--m)" }} /><i style={{ background: "var(--y)" }} />

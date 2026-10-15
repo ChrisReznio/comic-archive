@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { getSeries, getSeriesIssues, year, type Issue, type Series } from "../lib/db";
+import { getSeries, getSeriesIssues, seriesLabel, year, type Issue, type Series } from "../lib/db";
 import { cleanNumber, useCoverage } from "../lib/coverage";
-import { BookCard, CompareButtons, ErrorBox, Loading, RunBar, StatusLegend, useAsync } from "../components/ui";
+import { BookCard, CompareButtons, Crumbs, ErrorBox, Loading, RunBar, StatusLegend, useAsync } from "../components/ui";
 import { setFlagMany } from "../lib/user";
 import { useCanTrack } from "../lib/supabase";
 
@@ -22,7 +22,7 @@ function Header({ s, sub }: { s: Series; sub: string }) {
   const years = s.year_began ? `${s.year_began}${s.year_ended && s.year_ended !== s.year_began ? `–${s.year_ended}` : s.year_ended ? "" : "–"}` : "";
   return (
     <header>
-      <div className="crumbs"><Link to="/">Search</Link> / {s.kind === "book" ? "Books" : "Series"}</div>
+      <Crumbs items={[{ label: seriesLabel(s.name, s.year_began) }]} />
       <h1 className="display">{s.name}</h1>
       <p className="muted" style={{ margin: "8px 0 0" }}>{[years, s.format, sub].filter(Boolean).join(", ")}</p>
     </header>

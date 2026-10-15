@@ -74,19 +74,30 @@ export function foldText(s: string) {
 }
 
 export async function search(q: string): Promise<SearchHit[]> {
-  const toks = foldText(q).split(" ").filter(Boolean);
-  if (!toks.length) return [];
-  const match = toks.map((t) => (t.length >= 2 ? `"${t}"*` : `"${t}"`)).join(" ");
-  const rows = await query<{ label: string; kind: "series" | "book"; ref: number; year: string | null; extra: string; r: number }>(
-    `select label, kind, ref, year, extra, rank r from search where search match ? order by rank limit 120`, match,
-  );
-  const hits = rows.map((r) => ({ ...r, extra: JSON.parse(r.extra || "{}") }));
-  // favour exact-ish name matches and long runs, keep bm25 as tiebreaker
-  const fq = toks.join(" ");
+  const all = foldText(q).split(" ").filter(Boolean);
+  if (!all.length) return [];
+  // a 4-digit year ("Batman 1940") isn't part of the indexed name: use it to filter and rank instead
+  const years = all.filter((t) => /^(19[3-9]\d|20[0-4]\d)$/.test(t));
+  const words = all.filter((t) => !years.includes(t));
+  const run = async (toks: string[], limit: number) => {
+    const match = toks.map((t) => (t.length >= 2 ? `"${t}"*` : `"${t}"`)).join(" ");
+    const rows = await query<{ label: string; kind: "series" | "book"; ref: number; year: string | null; extra: string; r: number }>(
+      `select label, kind, ref, year, extra, rank r from search where search match ? order by rank limit ${limit}`, match,
+    );
+    return rows.map((r) => ({ ...r, extra: JSON.parse(r.extra || "{}") }));
+  };
+  let hits = words.length ? await run(words, years.length ? 1500 : 120) : [];
+  if (years.length) {
+    const near = hits.filter((h) => h.year && years.some((y) => Math.abs(+h.year! - +y) <= 1));
+    hits = near.length ? near : await run(all, 120); // no series from that year: maybe the number is part of a title
+  }
+  // favour exact-ish name matches, the exact year and long runs; keep bm25 as tiebreaker
+  const fq = words.join(" ");
   const score = (h: SearchHit & { r: number }) => {
     const f = foldText(h.label);
     let s = h.r;
     if (f === fq) s -= 30; else if (f.startsWith(fq)) s -= 12;
+    if (years.length && h.year && years.includes(String(h.year))) s -= 20;
     if (h.kind === "series" && h.extra.k === "periodical") s -= Math.min(10, Math.log2(1 + (h.extra.n || 0)) * 1.4);
     return s;
   };

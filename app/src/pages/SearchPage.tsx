@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { search, seriesLabel, type SearchHit } from "../lib/db";
-import { ErrorBox, Loading } from "../components/ui";
+import { ErrorBox, Loading, rememberSearch } from "../components/ui";
 import { useCoverage } from "../lib/coverage";
 
 const EXAMPLES = ["Batman 1940", "Watchmen", "Grant Morrison Omnibus", "Absolute Batman", "Sandman", "Green Lantern 2005"];
@@ -19,6 +19,7 @@ export default function SearchPage() {
 
   useEffect(() => {
     if (!q) { setState({ loading: false }); return; }
+    rememberSearch(q);
     let alive = true;
     setState((s) => ({ ...s, loading: true }));
     search(q).then((hits) => alive && setState({ hits, loading: false }), (error) => alive && setState({ error, loading: false }));

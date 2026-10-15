@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { bookTitle, getPlanBooks, getSeries, getSeriesIssues, year, type Issue, type PlanBookRow } from "../lib/db";
 import { cleanNumber, compressRun, planRun, useCoverage, type PlanBook } from "../lib/coverage";
-import { Cover, ErrorBox, FormatChips, Loading, RunBar, useAsync } from "../components/ui";
+import { Cover, Crumbs, ErrorBox, FormatChips, Loading, RunBar, useAsync } from "../components/ui";
 import { setFlagMany } from "../lib/user";
 import { useCanTrack } from "../lib/supabase";
 
@@ -70,7 +70,7 @@ export default function PlanPage() {
 
   return (
     <div>
-      <div className="crumbs"><Link to={`/series/${s.id}`}>{s.name} ({s.year_began})</Link> / Plan</div>
+      <Crumbs items={[{ label: `${s.name} (${s.year_began})`, to: `/series/${s.id}` }, { label: "Plan" }]} />
       <h1 className="display">Complete {s.name}</h1>
       <p className="muted" style={{ margin: "8px 0 0", maxWidth: "62ch" }}>
         Pick the stretch of the run you want and get the combination of books that covers it with the fewest purchases. Anything

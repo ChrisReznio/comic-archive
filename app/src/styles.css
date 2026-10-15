@@ -232,7 +232,14 @@ h3 { font-size: var(--step-1); }
 .detail-cover { position: sticky; top: 80px; }
 .detail h1 { font-size: var(--step-4); }
 .crumbs { font-size: var(--step--1); color: var(--ink-3); margin-bottom: 8px; }
+.crumbs ol { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 2px 0; }
+.crumbs li { display: inline-flex; align-items: center; min-width: 0; }
+.crumbs li + li::before { content: "›"; margin: 0 7px; color: var(--ink-3); }
 .crumbs a { color: var(--ink-2); }
+.crumbs li[aria-current] span { color: var(--ink-3); max-width: 28ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.back-btn { flex: none; display: grid; place-items: center; width: 36px; height: 36px; margin-left: -6px; border: 0; border-radius: var(--radius-s);
+  background: transparent; color: var(--paper); cursor: pointer; }
+.back-btn:hover { background: color-mix(in srgb, var(--paper) 12%, transparent); }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 18px 0; }
 @media (max-width: 720px) {
   .detail { grid-template-columns: 1fr; gap: 16px; }

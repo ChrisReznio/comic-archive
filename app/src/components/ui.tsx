@@ -180,3 +180,39 @@ export function BookCard({ id, title, format, cover, sub, kind = "book", number 
     </Link>
   );
 }
+
+// ---------- navigation ----------
+const LAST_SEARCH = "longbox-last-search";
+export function rememberSearch(q: string) {
+  try { if (q.trim()) sessionStorage.setItem(LAST_SEARCH, q.trim()); } catch { /* storage unavailable */ }
+}
+function searchHref() {
+  try { const q = sessionStorage.getItem(LAST_SEARCH); return q ? `/?q=${encodeURIComponent(q)}` : "/"; } catch { return "/"; }
+}
+
+/** Search › Series › Issue. The last item is the current page (not a link). */
+export function Crumbs({ items }: { items: { label: string; to?: string }[] }) {
+  return (
+    <nav className="crumbs" aria-label="Breadcrumb">
+      <ol>
+        <li><Link to={searchHref()}>Search</Link></li>
+        {items.map((it, k) => (
+          <li key={k} aria-current={k === items.length - 1 ? "page" : undefined}>
+            {it.to && k < items.length - 1 ? <Link to={it.to}>{it.label}</Link> : <span>{it.label}</span>}
+          </li>
+        ))}
+      </ol>
+    </nav>
+  );
+}
+
+/** Back within the app when there is history, otherwise to the start page. */
+export function BackButton() {
+  const nav = useNavigate();
+  const canGoBack = typeof window !== "undefined" && ((window.history.state as { idx?: number } | null)?.idx ?? 0) > 0;
+  return (
+    <button className="back-btn" aria-label="Back" title="Back" onClick={() => (canGoBack ? nav(-1) : nav("/"))}>
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+    </button>
+  );
+}
