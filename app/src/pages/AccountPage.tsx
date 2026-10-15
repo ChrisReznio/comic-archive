@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { accountsEnabled, friendlyAuthError, supabase, takeAuthError, useSession } from "../lib/supabase";
+import { accountsEnabled, clearAuthError, friendlyAuthError, peekAuthError, supabase, useSession } from "../lib/supabase";
 import { signOutAndClear, syncNow, useSyncState } from "../lib/sync";
 import { usePendingCount } from "../lib/user";
 import { Loading } from "../components/ui";
@@ -22,12 +22,12 @@ function SignIn() {
   const [sent, setSent] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(() => takeAuthError());
+  const [err, setErr] = useState<string | null>(() => peekAuthError());
 
   const send = async (e: FormEvent) => {
     e.preventDefault();
     if (!supabase) return;
-    setBusy(true); setErr(null);
+    setBusy(true); setErr(null); clearAuthError();
     const redirect = window.location.origin + window.location.pathname; // back to the app root; the ?code is picked up there
     const { error } = await supabase.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: redirect, shouldCreateUser: true } });
     setBusy(false);
@@ -36,7 +36,7 @@ function SignIn() {
   const verify = async (e: FormEvent) => {
     e.preventDefault();
     if (!supabase || !sent) return;
-    setBusy(true); setErr(null);
+    setBusy(true); setErr(null); clearAuthError();
     const { error } = await supabase.auth.verifyOtp({ email: sent, token: code.trim(), type: "email" });
     setBusy(false);
     if (error) setErr(/expired|invalid/i.test(error.message) ? "That code is wrong or has expired. Check you typed the code from the newest email." : error.message);
@@ -57,7 +57,7 @@ function SignIn() {
           <div className="row">
             <button className="btn solid" disabled={busy}>{busy ? "Sending…" : "Email me a sign-in link"}</button>
             <button type="button" className="btn ghost" disabled={!/^\S+@\S+\.\S+$/.test(email.trim())}
-              onClick={() => { setErr(null); setSent(email.trim()); }}>I already have a code</button>
+              onClick={() => { setErr(null); clearAuthError(); setSent(email.trim()); }}>I already have a code</button>
           </div>
           <p className="small faint">No password needed. We’ll email you a link and a code. Open the link in this browser, or type the code here.</p>
         </form>

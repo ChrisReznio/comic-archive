@@ -47,11 +47,17 @@ export function friendlyAuthError(code: string | null | undefined, desc?: string
   return desc ? `Sign-in didn’t work: ${desc}` : "Sign-in didn’t work. Request a new link.";
 }
 function setAuthError(msg: string) {
-  try { sessionStorage.setItem(AUTH_ERR_KEY, msg); } catch { /* private mode */ }
+  try { sessionStorage.setItem(AUTH_ERR_KEY, JSON.stringify({ msg, at: Date.now() })); } catch { /* private mode */ }
 }
-/** Reads (and forgets) the error from the last email link, if any. */
-export function takeAuthError(): string | null {
-  try { const m = sessionStorage.getItem(AUTH_ERR_KEY); sessionStorage.removeItem(AUTH_ERR_KEY); return m; } catch { return null; }
+/** The error from the last email link, if any (kept for a few minutes so a reload doesn't swallow it). */
+export function peekAuthError(): string | null {
+  try {
+    const v = JSON.parse(sessionStorage.getItem(AUTH_ERR_KEY) || "null") as { msg: string; at: number } | null;
+    return v && Date.now() - v.at < 10 * 60_000 ? v.msg : null;
+  } catch { return null; }
+}
+export function clearAuthError() {
+  try { sessionStorage.removeItem(AUTH_ERR_KEY); } catch { /* ignore */ }
 }
 
 const returnedCode = captureAuthReturn();
