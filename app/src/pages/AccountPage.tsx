@@ -1,11 +1,9 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { accountsEnabled, supabase, useSession } from "../lib/supabase";
+import { accountsEnabled, friendlyAuthError, supabase, takeAuthError, useSession } from "../lib/supabase";
 import { signOutAndClear, syncNow, useSyncState } from "../lib/sync";
 import { usePendingCount } from "../lib/user";
 import { Loading } from "../components/ui";
-
-const authError = new URLSearchParams(window.location.search).get("error_description");
 
 export default function AccountPage() {
   const session = useSession();
@@ -24,7 +22,7 @@ function SignIn() {
   const [sent, setSent] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(authError ? `The sign-in link didn’t work: ${authError}. Request a new one.` : null);
+  const [err, setErr] = useState<string | null>(() => takeAuthError());
 
   const send = async (e: FormEvent) => {
     e.preventDefault();
@@ -33,7 +31,7 @@ function SignIn() {
     const redirect = window.location.origin + window.location.pathname; // back to the app root; the ?code is picked up there
     const { error } = await supabase.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: redirect, shouldCreateUser: true } });
     setBusy(false);
-    if (error) setErr(error.message); else setSent(email.trim());
+    if (error) setErr(friendlyAuthError((error as { code?: string }).code, error.message)); else setSent(email.trim());
   };
   const verify = async (e: FormEvent) => {
     e.preventDefault();
@@ -41,7 +39,7 @@ function SignIn() {
     setBusy(true); setErr(null);
     const { error } = await supabase.auth.verifyOtp({ email: sent, token: code.trim(), type: "email" });
     setBusy(false);
-    if (error) setErr(error.message);
+    if (error) setErr(/expired|invalid/i.test(error.message) ? "That code is wrong or has expired. Check you typed the code from the newest email." : error.message);
   };
 
   return (
@@ -56,21 +54,25 @@ function SignIn() {
             <span className="small muted">Email</span>
             <input className="input" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
           </label>
-          <div><button className="btn solid" disabled={busy}>{busy ? "Sending…" : "Email me a sign-in link"}</button></div>
-          <p className="small faint">No password needed. We’ll email you a link; open it on this device.</p>
+          <div className="row">
+            <button className="btn solid" disabled={busy}>{busy ? "Sending…" : "Email me a sign-in link"}</button>
+            <button type="button" className="btn ghost" disabled={!/^\S+@\S+\.\S+$/.test(email.trim())}
+              onClick={() => { setErr(null); setSent(email.trim()); }}>I already have a code</button>
+          </div>
+          <p className="small faint">No password needed. We’ll email you a link and a code. Open the link in this browser, or type the code here.</p>
         </form>
       ) : (
         <div className="stack">
-          <p className="banner" role="status">We sent a sign-in link to <strong>{sent}</strong>. Open it on this device to finish signing in.</p>
+          <p className="banner" role="status">We sent an email to <strong>{sent}</strong>. Open its link in this browser, or type the code from it below. Only the newest email works.</p>
           <form className="row" onSubmit={verify}>
-            <input className="input" inputMode="numeric" autoComplete="one-time-code" placeholder="Or enter the code from the email"
+            <input className="input" inputMode="numeric" autoComplete="one-time-code" placeholder="Code from the email"
               value={code} onChange={(e) => setCode(e.target.value)} style={{ flex: 1, minWidth: 200 }} aria-label="Code from the email" />
             <button className="btn" disabled={busy || code.trim().length < 6}>Sign in with code</button>
           </form>
           <div><button className="btn small ghost" onClick={() => { setSent(null); setCode(""); }}>Use a different email</button></div>
         </div>
       )}
-      {err && <p className="error">{err}</p>}
+      {err && <p className="error" role="alert">{err}</p>}
     </div>
   );
 }

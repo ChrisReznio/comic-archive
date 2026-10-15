@@ -9,7 +9,7 @@ import ComparePage from "./pages/ComparePage";
 import PlanPage from "./pages/PlanPage";
 import AboutPage from "./pages/AboutPage";
 import AccountPage from "./pages/AccountPage";
-import { accountsEnabled, cleanAuthParams, useSession } from "./lib/supabase";
+import { accountsEnabled, useSession } from "./lib/supabase";
 import { useSyncEngine } from "./lib/sync";
 import { BackButton, rememberSearch } from "./components/ui";
 
@@ -57,7 +57,6 @@ export default function App() {
   const session = useSession();
   useSyncEngine();
   useEffect(() => { window.scrollTo(0, 0); }, [loc.pathname]);
-  useEffect(() => { if (session !== undefined) cleanAuthParams(); }, [session]);
   return (
     <div className="shell">
       <header className="top">
